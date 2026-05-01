@@ -19,8 +19,12 @@ if not defined PY_CMD (
   exit /b 1
 )
 
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":5000" ^| findstr "LISTENING"') do (
+  taskkill /PID %%P /F >nul 2>nul
+)
+
 start "" cmd /c "timeout /t 3 >nul && start http://127.0.0.1:5000"
-%PY_CMD% app.py
+%PY_CMD% -c "import app; app.app.run(debug=False, host='0.0.0.0', port=5000)"
 
 echo.
 echo Server stopped.
