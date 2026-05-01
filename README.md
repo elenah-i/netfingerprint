@@ -29,16 +29,24 @@ netfingerprint/
 pip install -r requirements.txt
 ```
 
-> Scapy requires libpcap. On Linux: `sudo apt install libpcap-dev`
-> On macOS: `brew install libpcap`
+> Linux may require libpcap: `sudo apt install libpcap-dev`  
+> macOS may require libpcap: `brew install libpcap`
 
-### 2. Run the Server (requires root for packet capture)
+### 2. Run the App
+
+#### Option A (Recommended on Windows): one-click launcher
 
 ```bash
-sudo python app.py
+start_netprint.bat
 ```
 
-Open your browser at: **http://localhost:5000**
+#### Option B: manual start
+
+```bash
+python app.py
+```
+
+Open your browser at: **http://127.0.0.1:5000**
 
 ---
 
@@ -52,6 +60,8 @@ Analyze a single website.
 { "url": "https://example.com" }
 ```
 
+You can also send plain domains like `"youtube.com"` — the backend auto-normalizes to `https://...`.
+
 **Response:** Full fingerprint JSON with protocol distribution, packet stats, and behavior label.
 
 ---
@@ -63,6 +73,8 @@ Compare two websites side by side.
 ```json
 { "url1": "https://youtube.com", "url2": "https://example.com" }
 ```
+
+`url1` and `url2` also support plain domains (for example `"youtube.com"`).
 
 **Response:**
 ```json
@@ -134,7 +146,7 @@ Returns pre-generated demo data (no capture needed, for UI testing).
 Set the capture duration via environment variable (default: 10 seconds):
 
 ```bash
-sudo CAPTURE_DURATION=15 python app.py
+CAPTURE_DURATION=15 python app.py
 ```
 
 ---
@@ -142,8 +154,8 @@ sudo CAPTURE_DURATION=15 python app.py
 ## Requirements
 
 - Python 3.10+
-- Root/admin privileges (for raw socket packet capture)
-- Linux or macOS (Scapy raw sockets)
+- Administrator/root privileges may be required for packet capture
+- Windows, Linux, or macOS
 - Modern browser (Chrome, Firefox, Edge)
 
 ---
