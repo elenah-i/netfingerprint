@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NetPrint — Network Fingerprint Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* ── RESET & BASE ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #080c10;
+  --surface:   #0d1117;
+  --card:      #111820;
+  --border:    #1e2d3d;
+  --border2:   #243347;
+  --text:      #c9d5e0;
+  --text-dim:  #5a7080;
+  --text-bright: #eaf2f8;
+  --accent:    #00e5ff;
+  --accent2:   #ff6b35;
+  --accent3:   #9b5de5;
+  --green:     #00f5a0;
+  --red:       #ff4757;
+  --mono:      'Space Mono', monospace;
+  --sans:      'DM Sans', sans-serif;
+  --radius:    8px;
+  --glow:      0 0 24px rgba(0, 229, 255, 0.15);
+}
+
+html { font-size: 15px; scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── GRID NOISE BACKGROUND ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  background-image:
+    linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+}
+
+/* ── LAYOUT ── */
+#app {
+  position: relative; z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 24px 80px;
+}
+
+/* ── HEADER ── */
+header {
+  padding: 48px 0 40px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+
+.logo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logo-mark {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--accent);
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+}
+
+.logo-title {
+  font-family: var(--mono);
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--text-bright);
+  line-height: 1;
+}
+
+.logo-title span { color: var(--accent); }
+
+.header-info {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+  text-align: right;
+  line-height: 1.7;
+}
+
+/* ── TABS ── */
+.tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  padding: 12px 24px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+/* ── INPUT PANEL ── */
+.input-panel {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 32px;
+}
+
+.input-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.input-group {
+  flex: 1;
+  min-width: 280px;
+}
+
+.input-label {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  display: block;
+}
+
+.url-input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--text-bright);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.url-input::placeholder { color: var(--text-dim); }
+.url-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.1);
+}
+
+.url-input.error { border-color: var(--red); }
+
+.input-error {
+  font-size: 0.75rem;
+  color: var(--red);
+  margin-top: 6px;
+  font-family: var(--mono);
+  display: none;
+}
+
+.btn {
+  padding: 12px 28px;
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #33eaff;
+  box-shadow: var(--glow);
+}
+
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-demo {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text-dim);
+}
+
+.btn-demo:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── STATUS BAR ── */
+.status-bar {
+  display: none;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 229, 255, 0.06);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  border-radius: var(--radius);
+  padding: 14px 20px;
+  margin-bottom: 32px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--accent);
+}
+
+.status-bar.visible { display: flex; }
+
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,229,255,0.3);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status-steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.step {
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  opacity: 0.4;
+  background: rgba(0,229,255,0.1);
+  transition: opacity 0.3s;
+}
+
+.step.active { opacity: 1; }
+.step.done { opacity: 0.7; background: rgba(0, 245, 160, 0.15); color: var(--green); }
+
+/* ── ERROR CARD ── */
+.error-card {
+  display: none;
+  background: rgba(255, 71, 87, 0.08);
+  border: 1px solid rgba(255, 71, 87, 0.3);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--red);
+  margin-bottom: 24px;
+}
+
+/* ── FINGERPRINT CARD ── */
+.fp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  animation: fadeUp 0.4s ease;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fp-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.fp-url {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.behavior-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.fp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1px;
+  background: var(--border);
+}
+
+.stat-cell {
+  background: var(--card);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.stat-label {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.stat-value {
+  font-family: var(--mono);
+  font-size: 1.1rem;
+  color: var(--text-bright);
+  font-weight: 700;
+}
+
+.stat-sub {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-family: var(--mono);
+}
+
+/* ── IPs & DNS ── */
+.detail-section {
+  padding: 20px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.detail-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 12px;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  color: var(--text);
+}
+
+/* ── CHARTS ── */
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1px;
+  background: var(--border);
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 900px) {
+  .charts-grid { grid-template-columns: 1fr; }
+}
+
+.chart-panel {
+  background: var(--card);
+  padding: 20px;
+}
+
+.chart-title {
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 200px;
+}
+
+/* ── COMPARE MODE ── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 780px) {
+  .compare-grid { grid-template-columns: 1fr; }
+}
+
+/* ── DIFF TABLE ── */
+.diff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.diff-table th {
+  padding: 10px 16px;
+  text-align: left;
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-table tr:last-child td { border-bottom: none; }
+
+.diff-val { color: var(--text-bright); }
+
+.diff-higher { color: var(--red); }
+.diff-lower  { color: var(--green); }
+
+.diff-bar {
+  height: 3px;
+  background: var(--border);
+  border-radius: 2px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+
+.diff-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ── RESULTS SECTION ── */
+#results { display: none; }
+#compare-results { display: none; }
+
+/* ── OVERLAY CHART (compare timeline) ── */
+.overlay-chart-wrap {
+  position: relative;
+  height: 200px;
+}
+
+/* ── FOOTER ── */
+footer {
+  margin-top: 60px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="logo">
+    <span class="logo-mark">v1.0.0 · Educational Tool</span>
+    <h1 class="logo-title">Net<span>Print</span></h1>
+  </div>
+  <div class="header-info">
+    Network Fingerprint Analyzer<br>
+    Captures · Extracts · Classifies<br>
+    Powered by Scapy + Flask
+  </div>
+</header>
+
+<!-- ── TABS ── -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="single">Single Site</button>
+  <button class="tab-btn" data-tab="compare">Compare Two Sites</button>
+</div>
+
+<!-- ── SINGLE MODE ── -->
+<div id="tab-single">
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="input-group">
+        <label class="input-label" for="url-input">Target Website URL</label>
+        <input id="url-input" class="url-input" type="text"
+               placeholder="https://example.com" autocomplete="off" spellcheck="false">
+        <div class="input-error" id="url-error">⚠ Please enter a valid URL starting with http:// or https://</div>
+      </div>
+      <button class="btn btn-primary" id="analyze-btn" onclick="analyzeUrl()">▶ Analyze</button>
+      <button class="btn btn-demo" onclick="loadDemo('single')">Demo Data</button>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status-bar">
+    <div class="spinner"></div>
+    <div class="status-steps">
+      <span class="step" id="step-1">DNS Resolve</span>
+      <span class="step" id="step-2">Packet Capture</span>
+      <span class="step" id="step-3">Feature Extract</span>
+      <span class="step" id="step-4">Fingerprint</span>
+    </div>
+    <span id="status-text">Initializing…</span>
+  </div>
+
+  <div class="error-card" id="error-card"></div>
+
+  <div id="results">
+    <div class="fp-card" id="fp-card-single"></div>
+  </div>
+</div>
+
+<!-- ── COMPARE MODE ── -->
+<div id="tab-compare" style="display:none">
+  <div class="input-panel">
+    <div class="input-row">
+      <div class="input-group">
+        <label class="input-label" for="url1-input">Site 1</label>
+        <input id="url1-input" class="url-input" type="text"
+               placeholder="https://youtube.com" autocomplete="off" spellcheck="false">
+        <div class="input-error" id="url1-error">⚠ Valid URL required</div>
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="url2-input">Site 2</label>
+        <input id="url2-input" class="url-input" type="text"
+               placeholder="https://example.com" autocomplete="off" spellcheck="false">
+        <div class="input-error" id="url2-error">⚠ Valid URL required</div>
+      </div>
+      <button class="btn btn-primary" id="compare-btn" onclick="compareUrls()">⇄ Compare</button>
+      <button class="btn btn-demo" onclick="loadDemo('compare')">Demo Data</button>
+    </div>
+  </div>
+
+  <div class="status-bar" id="compare-status">
+    <div class="spinner"></div>
+    <span id="compare-status-text">Analyzing sites sequentially…</span>
+  </div>
+
+  <div class="error-card" id="compare-error-card"></div>
+
+  <div id="compare-results">
+    <div class="compare-grid">
+      <div class="fp-card" id="fp-card-1"></div>
+      <div class="fp-card" id="fp-card-2"></div>
+    </div>
+
+    <!-- Diff Table -->
+    <div class="fp-card" style="margin-bottom: 24px;">
+      <div class="fp-header">
+        <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;">Comparison Report</span>
+      </div>
+      <div style="padding:0 8px;">
+        <table class="diff-table" id="diff-table"></table>
+      </div>
+    </div>
+
+    <!-- Overlay Timeline -->
+    <div class="fp-card">
+      <div class="fp-header">
+        <span style="font-family:var(--mono);font-size:0.75rem;color:var(--text-dim);letter-spacing:0.1em;text-transform:uppercase;">Traffic Timeline — Overlay</span>
+      </div>
+      <div style="padding:20px;">
+        <div class="overlay-chart-wrap">
+          <canvas id="overlay-timeline-chart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <span>NetPrint · Network Fingerprint Analyzer · Educational Use</span>
+  <span>Requires sudo · Scapy · Flask · Chart.js</span>
+</footer>
+
+</div><!-- #app -->
+
+<script>
+// ─────────────────────────────────────────────
+// GLOBAL STATE
+// ─────────────────────────────────────────────
+let charts = {};
+
+// ─────────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const tab = btn.dataset.tab;
+    document.getElementById('tab-single').style.display = tab === 'single' ? '' : 'none';
+    document.getElementById('tab-compare').style.display = tab === 'compare' ? '' : 'none';
+  });
+});
+
+// ─────────────────────────────────────────────
+// VALIDATION
+// ─────────────────────────────────────────────
+function validateUrl(val) {
+  return /^https?:\/\/[^\s]+\.[^\s]+/.test(val.trim());
+}
+
+function normalizeUrl(val) {
+  let url = (val || '').trim().replace(/\s+/g, '');
+  if (!url) return '';
+  if (!/^https?:\/\//i.test(url)) {
+    url = 'https://' + url;
+  }
+  return url;
+}
+
+function showInputError(inputId, errorId, show) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (show) {
+    input.classList.add('error');
+    err.style.display = 'block';
+  } else {
+    input.classList.remove('error');
+    err.style.display = 'none';
+  }
+}
+
+// ─────────────────────────────────────────────
+// STATUS ANIMATION (single mode)
+// ─────────────────────────────────────────────
+let stepIndex = 0;
+let stepInterval = null;
+const STEPS = ['step-1','step-2','step-3','step-4'];
+const STEP_MSGS = ['Resolving DNS…','Sniffing packets…','Extracting features…','Building fingerprint…'];
+
+function startStatus() {
+  const bar = document.getElementById('status-bar');
+  bar.classList.add('visible');
+  STEPS.forEach(id => {
+    const el = document.getElementById(id);
+    el.classList.remove('active','done');
+  });
+  stepIndex = 0;
+  activateStep(0);
+  stepInterval = setInterval(() => {
+    stepIndex++;
+    if (stepIndex < STEPS.length) activateStep(stepIndex);
+  }, 3000);
+}
+
+function activateStep(i) {
+  for (let j = 0; j < i; j++) {
+    const el = document.getElementById(STEPS[j]);
+    el.classList.remove('active');
+    el.classList.add('done');
+  }
+  if (i < STEPS.length) {
+    document.getElementById(STEPS[i]).classList.add('active');
+    document.getElementById('status-text').textContent = STEP_MSGS[i];
+  }
+}
+
+function stopStatus() {
+  clearInterval(stepInterval);
+  document.getElementById('status-bar').classList.remove('visible');
+}
+
+// ─────────────────────────────────────────────
+// ANALYZE (single)
+// ─────────────────────────────────────────────
+async function analyzeUrl() {
+  const input = document.getElementById('url-input');
+  const url = normalizeUrl(input.value);
+  input.value = url;
+  if (!validateUrl(url)) {
+    showInputError('url-input','url-error', true);
+    return;
+  }
+  showInputError('url-input','url-error', false);
+
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = true;
+  document.getElementById('error-card').style.display = 'none';
+  document.getElementById('results').style.display = 'none';
+  startStatus();
+
+  try {
+    const res = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const data = await res.json();
+    stopStatus();
+    if (data.error) {
+      showError('error-card', data.error);
+    } else {
+      renderSingleResult(data);
+    }
+  } catch(e) {
+    stopStatus();
+    showError('error-card', 'Could not connect to the backend. Is Flask running?');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────
+// COMPARE (two sites)
+// ─────────────────────────────────────────────
+async function compareUrls() {
+  const input1 = document.getElementById('url1-input');
+  const input2 = document.getElementById('url2-input');
+  const url1 = normalizeUrl(input1.value);
+  const url2 = normalizeUrl(input2.value);
+  input1.value = url1;
+  input2.value = url2;
+  let valid = true;
+  if (!validateUrl(url1)) { showInputError('url1-input','url1-error', true); valid = false; }
+  else showInputError('url1-input','url1-error', false);
+  if (!validateUrl(url2)) { showInputError('url2-input','url2-error', true); valid = false; }
+  else showInputError('url2-input','url2-error', false);
+  if (!valid) return;
+
+  const btn = document.getElementById('compare-btn');
+  btn.disabled = true;
+  document.getElementById('compare-error-card').style.display = 'none';
+  document.getElementById('compare-results').style.display = 'none';
+  const statusBar = document.getElementById('compare-status');
+  statusBar.classList.add('visible');
+  document.getElementById('compare-status-text').textContent = `Analyzing ${url1}…`;
+
+  try {
+    const res = await fetch('/api/compare', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url1, url2 })
+    });
+    const data = await res.json();
+    statusBar.classList.remove('visible');
+    if (data.error) {
+      showError('compare-error-card', data.error);
+    } else {
+      renderCompareResult(data);
+    }
+  } catch(e) {
+    statusBar.classList.remove('visible');
+    showError('compare-error-card', 'Could not connect to the backend.');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────
+// DEMO DATA
+// ─────────────────────────────────────────────
+async function loadDemo(mode) {
+  try {
+    const res = await fetch('/api/demo');
+    const data = await res.json();
+    if (mode === 'single') {
+      document.getElementById('url-input').value = data.site1.site_url;
+      document.getElementById('error-card').style.display = 'none';
+      renderSingleResult(data.site1);
+    } else {
+      document.getElementById('url1-input').value = data.site1.site_url;
+      document.getElementById('url2-input').value = data.site2.site_url;
+      document.getElementById('compare-error-card').style.display = 'none';
+      renderCompareResult(data);
+    }
+  } catch(e) {
+    alert('Backend not running. Demo data requires Flask server.');
+  }
+}
+
+// ─────────────────────────────────────────────
+// RENDER HELPERS
+// ─────────────────────────────────────────────
+function showError(cardId, msg) {
+  const card = document.getElementById(cardId);
+  card.textContent = '⚠ ' + msg;
+  card.style.display = 'block';
+}
+
+function buildFpCardHTML(fp, prefix) {
+  const ips = (fp.unique_ips || []).slice(0, 12);
+  const dns = (fp.dns_queries || []).slice(0, 10);
+  const badgeStyle = `color:${fp.behavior_color};border-color:${fp.behavior_color};`;
+
+  return `
+    <div class="fp-header">
+      <span class="fp-url">${escHtml(fp.site_url)}</span>
+      <div class="behavior-badge" style="${badgeStyle}">
+        ${fp.behavior_icon} ${fp.behavior_label}
+        <span style="opacity:0.6;font-size:0.6rem">${fp.behavior_confidence}%</span>
+      </div>
+    </div>
+
+    <div class="fp-stats">
+      ${statCell('Total Packets', fp.total_packets.toLocaleString())}
+      ${statCell('Total Data', fp.total_bytes_human)}
+      ${statCell('Avg Packet', fp.mean_packet_size + ' B')}
+      ${statCell('Max Packet', fp.max_packet_size + ' B')}
+      ${statCell('Top Protocol', fp.top_protocol)}
+      ${statCell('Unique IPs', fp.unique_ip_count)}
+      ${statCell('DNS Queries', (fp.dns_queries||[]).length)}
+      ${statCell('Session', fp.session_duration + 's')}
+    </div>
+
+    ${ips.length ? `
+    <div class="detail-section">
+      <div class="detail-title">Destination IPs</div>
+      <div class="tag-list">${ips.map(ip => `<span class="tag">${escHtml(ip)}</span>`).join('')}</div>
+    </div>` : ''}
+
+    ${dns.length ? `
+    <div class="detail-section" style="padding-top:0;">
+      <div class="detail-title">DNS Queries</div>
+      <div class="tag-list">${dns.map(d => `<span class="tag">${escHtml(d)}</span>`).join('')}</div>
+    </div>` : ''}
+
+    <div class="charts-grid">
+      <div class="chart-panel">
+        <div class="chart-title">Protocol Distribution</div>
+        <div class="chart-wrap"><canvas id="${prefix}-proto-chart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Packet Size Histogram</div>
+        <div class="chart-wrap"><canvas id="${prefix}-hist-chart"></canvas></div>
+      </div>
+      <div class="chart-panel">
+        <div class="chart-title">Traffic Timeline (bytes/s)</div>
+        <div class="chart-wrap"><canvas id="${prefix}-timeline-chart"></canvas></div>
+      </div>
+    </div>
+  `;
+}
+
+function statCell(label, value, sub) {
+  return `<div class="stat-cell">
+    <div class="stat-label">${label}</div>
+    <div class="stat-value">${value}</div>
+    ${sub ? `<div class="stat-sub">${sub}</div>` : ''}
+  </div>`;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ─────────────────────────────────────────────
+// CHART COLORS
+// ─────────────────────────────────────────────
+const PROTO_COLORS = {
+  HTTPS: '#00e5ff', TCP: '#00f5a0', UDP: '#ff6b35',
+  DNS: '#9b5de5', ICMP: '#ffd166', ARP: '#ef8c8c', Other: '#5a7080'
+};
+
+function protoColor(name) {
+  return PROTO_COLORS[name] || '#5a7080';
+}
+
+// ─────────────────────────────────────────────
+// CHART RENDERING
+// ─────────────────────────────────────────────
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+function renderCharts(fp, prefix, timelineColor) {
+  const color = timelineColor || '#00e5ff';
+
+  // Protocol Pie
+  destroyChart(prefix + '-proto');
+  const protoData = fp.protocol_distribution || {};
+  const protoLabels = Object.keys(protoData).filter(k => protoData[k] > 0);
+  const protoVals = protoLabels.map(k => protoData[k]);
+  charts[prefix + '-proto'] = new Chart(document.getElementById(prefix + '-proto-chart'), {
+    type: 'doughnut',
+    data: {
+      labels: protoLabels,
+      datasets: [{
+        data: protoVals,
+        backgroundColor: protoLabels.map(protoColor),
+        borderColor: '#080c10',
+        borderWidth: 2,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'right', labels: { color: '#c9d5e0', font: { family: 'Space Mono', size: 10 }, padding: 8 } },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}%` } }
+      }
+    }
+  });
+
+  // Histogram
+  destroyChart(prefix + '-hist');
+  const hist = fp.size_histogram || {};
+  const histLabels = Object.keys(hist);
+  const histVals = histLabels.map(k => hist[k]);
+  charts[prefix + '-hist'] = new Chart(document.getElementById(prefix + '-hist-chart'), {
+    type: 'bar',
+    data: {
+      labels: histLabels,
+      datasets: [{
+        label: 'Packets',
+        data: histVals,
+        backgroundColor: 'rgba(0,229,255,0.2)',
+        borderColor: '#00e5ff',
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } },
+        y: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } }
+      }
+    }
+  });
+
+  // Timeline
+  destroyChart(prefix + '-timeline');
+  const timeline = fp.traffic_timeline || [];
+  charts[prefix + '-timeline'] = new Chart(document.getElementById(prefix + '-timeline-chart'), {
+    type: 'line',
+    data: {
+      labels: timeline.map(t => t.second + 's'),
+      datasets: [{
+        label: 'Bytes',
+        data: timeline.map(t => t.bytes),
+        borderColor: color,
+        backgroundColor: color.replace(')', ',0.08)').replace('rgb','rgba'),
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: color,
+        tension: 0.4,
+        fill: true,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } },
+        y: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } }
+      }
+    }
+  });
+}
+
+// ─────────────────────────────────────────────
+// SINGLE RESULT
+// ─────────────────────────────────────────────
+function renderSingleResult(fp) {
+  const card = document.getElementById('fp-card-single');
+  card.innerHTML = buildFpCardHTML(fp, 'single');
+  document.getElementById('results').style.display = 'block';
+  setTimeout(() => renderCharts(fp, 'single', '#00e5ff'), 50);
+}
+
+// ─────────────────────────────────────────────
+// COMPARE RESULT
+// ─────────────────────────────────────────────
+function renderCompareResult(data) {
+  const { site1, site2, diff } = data;
+
+  document.getElementById('fp-card-1').innerHTML = buildFpCardHTML(site1, 'c1');
+  document.getElementById('fp-card-2').innerHTML = buildFpCardHTML(site2, 'c2');
+
+  // Diff Table
+  const metrics = ['total_bytes','total_packets','unique_ip_count','mean_packet_size','max_packet_size','session_duration','mean_inter_arrival_ms'];
+  const table = document.getElementById('diff-table');
+  const url1Short = new URL(site1.site_url).hostname;
+  const url2Short = new URL(site2.site_url).hostname;
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th>Metric</th>
+        <th>${escHtml(url1Short)}</th>
+        <th>${escHtml(url2Short)}</th>
+        <th>Δ%</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${metrics.filter(k => diff[k]).map(k => {
+        const d = diff[k];
+        const s1Class = d.direction === 'site1_higher' ? 'diff-higher' : (d.direction === 'site2_higher' ? 'diff-lower' : '');
+        const s2Class = d.direction === 'site2_higher' ? 'diff-higher' : (d.direction === 'site1_higher' ? 'diff-lower' : '');
+        return `<tr>
+          <td style="color:var(--text-dim)">${escHtml(d.label)}</td>
+          <td class="diff-val ${s1Class}">${escHtml(String(d.site1))}</td>
+          <td class="diff-val ${s2Class}">${escHtml(String(d.site2))}</td>
+          <td>
+            <span style="color:var(--text-dim)">${d.diff_pct}%</span>
+            <div class="diff-bar"><div class="diff-bar-fill" style="width:${Math.min(d.diff_pct,100)}%"></div></div>
+          </td>
+        </tr>`;
+      }).join('')}
+      <tr>
+        <td style="color:var(--text-dim)">Behavior</td>
+        <td><span class="behavior-badge" style="color:${site1.behavior_color};border-color:${site1.behavior_color};display:inline-flex;padding:3px 10px">${site1.behavior_icon} ${site1.behavior_label}</span></td>
+        <td><span class="behavior-badge" style="color:${site2.behavior_color};border-color:${site2.behavior_color};display:inline-flex;padding:3px 10px">${site2.behavior_icon} ${site2.behavior_label}</span></td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  `;
+
+  document.getElementById('compare-results').style.display = 'block';
+
+  setTimeout(() => {
+    renderCharts(site1, 'c1', '#00e5ff');
+    renderCharts(site2, 'c2', '#ff6b35');
+
+    // Overlay timeline
+    destroyChart('overlay-timeline');
+    const t1 = site1.traffic_timeline || [];
+    const t2 = site2.traffic_timeline || [];
+    const maxLen = Math.max(t1.length, t2.length);
+    const labels = Array.from({ length: maxLen }, (_, i) => i + 's');
+    charts['overlay-timeline'] = new Chart(document.getElementById('overlay-timeline-chart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: url1Short,
+            data: Array.from({ length: maxLen }, (_, i) => t1[i] ? t1[i].bytes : 0),
+            borderColor: '#00e5ff', backgroundColor: 'rgba(0,229,255,0.05)',
+            borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#00e5ff', tension: 0.4, fill: true,
+          },
+          {
+            label: url2Short,
+            data: Array.from({ length: maxLen }, (_, i) => t2[i] ? t2[i].bytes : 0),
+            borderColor: '#ff6b35', backgroundColor: 'rgba(255,107,53,0.05)',
+            borderWidth: 2, pointRadius: 3, pointBackgroundColor: '#ff6b35', tension: 0.4, fill: true,
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#c9d5e0', font: { family: 'Space Mono', size: 10 } } } },
+        scales: {
+          x: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } },
+          y: { ticks: { color: '#5a7080', font: { family: 'Space Mono', size: 9 } }, grid: { color: '#1e2d3d' } }
+        }
+      }
+    });
+  }, 50);
+}
+
+// ─────────────────────────────────────────────
+// ENTER KEY
+// ─────────────────────────────────────────────
+document.getElementById('url-input').addEventListener('keydown', e => { if (e.key === 'Enter') analyzeUrl(); });
+</script>
+</body>
+</html>
