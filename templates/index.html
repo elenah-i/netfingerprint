@@ -662,7 +662,18 @@ document.querySelectorAll('.tab-btn').forEach(btn => {
 // VALIDATION
 // ─────────────────────────────────────────────
 function validateUrl(val) {
-  return /^https?:\/\/[^\s]+\.[^\s]+/.test(val.trim());
+  const raw = (val || '').trim();
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    if (!u.hostname) return false;
+    if (u.pathname.startsWith('//')) return false;
+    if (u.hostname.toLowerCase() === 'http' || u.hostname.toLowerCase() === 'https') return false;
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function normalizeUrl(val) {
@@ -672,6 +683,14 @@ function normalizeUrl(val) {
     url = 'https://' + url;
   }
   return url;
+}
+
+function getHostnameSafe(url) {
+  try {
+    return new URL(url).hostname || url;
+  } catch {
+    return url;
+  }
 }
 
 function showInputError(inputId, errorId, show) {
@@ -1037,8 +1056,8 @@ function renderCompareResult(data) {
   // Diff Table
   const metrics = ['total_bytes','total_packets','unique_ip_count','mean_packet_size','max_packet_size','session_duration','mean_inter_arrival_ms'];
   const table = document.getElementById('diff-table');
-  const url1Short = new URL(site1.site_url).hostname;
-  const url2Short = new URL(site2.site_url).hostname;
+  const url1Short = getHostnameSafe(site1.site_url);
+  const url2Short = getHostnameSafe(site2.site_url);
   table.innerHTML = `
     <thead>
       <tr>

@@ -5,6 +5,7 @@ Exposes endpoints for single-site analysis and two-site comparison.
 
 import os
 import json
+import traceback
 from urllib.parse import urlparse
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS
@@ -59,7 +60,15 @@ def _normalize_url(raw_url: str) -> str:
         url = f"https://{url}"
 
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https") or not parsed.netloc:
+    host = parsed.hostname
+    if parsed.scheme not in ("http", "https") or not parsed.netloc or not host:
+        return ""
+
+    # Reject malformed values like https://https//example.com
+    if parsed.path.startswith("//"):
+        return ""
+
+    if host.lower() in ("http", "https"):
         return ""
 
     return url
@@ -90,11 +99,19 @@ def analyze():
     try:
         fingerprint = _analyze_url(url)
         return jsonify(fingerprint)
+    except OSError as e:
+        traceback.print_exc()
+        if getattr(e, "errno", None) == 22:
+            return jsonify({
+                "error": "Packet capture failed on this system interface (Windows/Npcap invalid argument). Try running as Administrator and retry."
+            }), 500
+        return jsonify({"error": str(e)}), 500
     except PermissionError:
         return jsonify({
             "error": "Permission denied. Run with sudo/admin privileges for packet capture."
         }), 403
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
@@ -117,11 +134,19 @@ def compare():
         fp2 = _analyze_url(url2)
         diff = compare_fingerprints(fp1, fp2)
         return jsonify({"site1": fp1, "site2": fp2, "diff": diff})
+    except OSError as e:
+        traceback.print_exc()
+        if getattr(e, "errno", None) == 22:
+            return jsonify({
+                "error": "Packet capture failed on this system interface (Windows/Npcap invalid argument). Try running as Administrator and retry."
+            }), 500
+        return jsonify({"error": str(e)}), 500
     except PermissionError:
         return jsonify({
             "error": "Permission denied. Run with sudo/admin privileges for packet capture."
         }), 403
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"error": str(e)}), 500
 
 
